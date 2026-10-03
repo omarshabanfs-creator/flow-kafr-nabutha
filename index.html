@@ -1,0 +1,446 @@
+<title>FLOW Kafr Nabutha Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: control strip → verdict band → KPI row → schedule (Gantt) → deadlines | budget → indicators | risks → BoQ → data-health log */
+:root{
+  --bg:#f3f5f4; --surface:#ffffff; --surface-2:#eaefed; --line:#d5dddb;
+  --fg:#16211f; --muted:#5b6a67;
+  --water:#11677a; --water-soft:#d3e8ec;
+  --olive:#6d7a2c; --olive-soft:#e7ebd2;
+  --good:#2f7d4f; --warn:#b26b00; --bad:#b3362c;
+  --good-soft:#dcefe3; --warn-soft:#f6e7cc; --bad-soft:#f6dcd9;
+  --display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --body:"Public Sans","Segoe UI",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1716; --surface:#16211f; --surface-2:#1d2a28; --line:#2c3b38;
+  --fg:#e5ecea; --muted:#94a5a1;
+  --water:#5fb7c9; --water-soft:#183b43; --olive:#b4c46a; --olive-soft:#2f3519;
+  --good:#6cc48f; --warn:#e2a64a; --bad:#ec7d72;
+  --good-soft:#1c3a28; --warn-soft:#3d2f17; --bad-soft:#41211e; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1716; --surface:#16211f; --surface-2:#1d2a28; --line:#2c3b38;
+  --fg:#e5ecea; --muted:#94a5a1;
+  --water:#5fb7c9; --water-soft:#183b43; --olive:#b4c46a; --olive-soft:#2f3519;
+  --good:#6cc48f; --warn:#e2a64a; --bad:#ec7d72;
+  --good-soft:#1c3a28; --warn-soft:#3d2f17; --bad-soft:#41211e; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:14px;line-height:1.5}
+.wrap{max-width:1240px;margin:0 auto;padding-inline:20px;padding-block:24px 56px;display:grid;gap:20px}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance}
+h1{font-size:clamp(22px,3.2vw,32px);font-weight:800;letter-spacing:-.01em}
+h2{font-size:17px;font-weight:700}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.mono,.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+header{display:grid;gap:10px}
+.sub{color:var(--muted);max-width:80ch}
+.controls{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:end;padding:14px 16px;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+.controls label{display:grid;gap:4px;font-size:12px;color:var(--muted)}
+input[type=date]{font:inherit;font-family:var(--mono);padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:inherit;font-size:12.5px;padding:6px 11px;border-radius:999px;border:1px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--water);border-color:var(--water);color:var(--surface)}
+.chip:focus-visible,input:focus-visible,button:focus-visible{outline:2px solid var(--water);outline-offset:2px}
+.btn-ghost{font:inherit;font-size:12.5px;padding:6px 10px;border:1px dashed var(--line);background:none;color:var(--muted);border-radius:6px;cursor:pointer}
+
+.verdict{display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:center;padding:16px 18px;border-radius:10px;background:var(--bad-soft);border:1px solid color-mix(in srgb,var(--bad) 35%,transparent)}
+.light{width:44px;height:44px;border-radius:50%;background:var(--bad);box-shadow:0 0 0 6px color-mix(in srgb,var(--bad) 20%,transparent)}
+.verdict p{margin:2px 0 0;max-width:95ch}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;display:grid;gap:6px;align-content:start}
+.kpi .v{font-family:var(--display);font-size:28px;font-weight:800;line-height:1.1;font-variant-numeric:tabular-nums}
+.kpi .d{font-size:12.5px;color:var(--muted)}
+.kpi.bad .v{color:var(--bad)} .kpi.warn .v{color:var(--warn)} .kpi.good .v{color:var(--good)}
+.meter{height:6px;border-radius:3px;background:var(--surface-2);position:relative;overflow:hidden}
+.meter i{position:absolute;inset:0 auto 0 0;background:var(--water);border-radius:3px}
+.meter b{position:absolute;top:0;bottom:0;width:2px;background:var(--fg)}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:14px;min-width:0}
+.panel-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;align-items:baseline}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media (max-width:900px){.two{grid-template-columns:1fr}}
+
+/* Gantt */
+.gantt{overflow-x:auto}
+.g-grid{min-width:760px;display:grid;grid-template-columns:minmax(220px,300px) 1fr 92px;font-size:12.5px}
+.g-row{display:contents}
+.g-row>div{padding:7px 8px;border-bottom:1px solid var(--line);min-width:0}
+.g-row.head>div{font-family:var(--mono);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.g-name{display:grid;gap:1px}
+.g-name small{color:var(--muted);font-family:var(--mono);font-size:11px}
+.track{position:relative;height:28px}
+.months{position:relative;height:30px}
+.months span{position:absolute;top:0;font-family:var(--mono);font-size:10.5px;color:var(--muted);transform:translateX(2px)}
+.bar{position:absolute;top:7px;height:14px;border-radius:3px;background:var(--water-soft);border:1px solid color-mix(in srgb,var(--water) 45%,transparent);overflow:hidden}
+.bar i{position:absolute;inset:0 auto 0 0;background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--water) 55%,transparent) 0 4px,color-mix(in srgb,var(--water) 30%,transparent) 4px 8px)}
+.bar.c-olive{background:var(--olive-soft);border-color:color-mix(in srgb,var(--olive) 50%,transparent)}
+.bar.c-olive i{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--olive) 55%,transparent) 0 4px,color-mix(in srgb,var(--olive) 30%,transparent) 4px 8px)}
+.bar.c-grey{background:var(--surface-2);border-color:var(--line)}
+.bar.c-grey i{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--muted) 45%,transparent) 0 4px,color-mix(in srgb,var(--muted) 20%,transparent) 4px 8px)}
+.today{position:absolute;top:0;bottom:0;width:2px;background:var(--bad);z-index:2}
+.today-lbl{position:absolute;top:-1px;font-family:var(--mono);font-size:10px;color:var(--bad);transform:translateX(4px);white-space:nowrap}
+.g-stat{display:flex;align-items:center}
+.pill{display:inline-block;font-family:var(--mono);font-size:10.5px;padding:2px 7px;border-radius:999px;white-space:nowrap;letter-spacing:.02em}
+.pill.bad{background:var(--bad-soft);color:var(--bad)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.good{background:var(--good-soft);color:var(--good)}
+.pill.neutral{background:var(--surface-2);color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--muted)}
+.legend span{display:inline-flex;gap:6px;align-items:center}
+.sw{width:14px;height:10px;border-radius:2px;display:inline-block}
+
+/* tables */
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{text-align:left;font-family:var(--mono);font-size:10.5px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:6px 8px;border-bottom:1px solid var(--line)}
+td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+td.r,th.r{text-align:right}
+tr.is-hidden{display:none}
+
+/* budget */
+.alloc{display:grid;grid-template-columns:130px 1fr;gap:18px;align-items:center}
+@media (max-width:480px){.alloc{grid-template-columns:1fr}}
+.donut{width:130px;height:130px;border-radius:50%;position:relative}
+.donut::after{content:"";position:absolute;inset:26px;border-radius:50%;background:var(--surface)}
+.donut-c{position:absolute;inset:0;display:grid;place-content:center;text-align:center;z-index:1;font-size:11px;color:var(--muted)}
+.donut-c b{font-family:var(--display);font-size:16px;color:var(--fg)}
+.hbar{display:grid;gap:4px}
+.hbar-top{display:flex;justify-content:space-between;gap:8px;font-size:12.5px}
+.hbar .meter{height:10px}
+
+/* indicators */
+.ind{display:grid;gap:10px}
+.ind-row{display:grid;grid-template-columns:1fr 120px;gap:10px;align-items:center;font-size:12.8px}
+.ind-row .lvl{font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase}
+.ind-row .t{font-family:var(--mono);font-size:11.5px;text-align:right;color:var(--muted)}
+
+/* risk heatmap */
+.heat{display:grid;grid-template-columns:auto repeat(3,1fr);gap:4px;font-size:11.5px;max-width:420px}
+.heat div{padding:10px 6px;text-align:center;border-radius:4px}
+.heat .ax{background:none;color:var(--muted);font-family:var(--mono);font-size:10.5px;padding:6px 4px}
+.cell{font-family:var(--display);font-weight:700;font-size:18px}
+.h1{background:var(--good-soft);color:var(--good)} .h2{background:var(--warn-soft);color:var(--warn)} .h3{background:var(--bad-soft);color:var(--bad)}
+.cats{display:grid;gap:8px}
+
+/* issues */
+.issues{display:grid;gap:10px;margin:0;padding:0;list-style:none}
+.issue{display:grid;grid-template-columns:86px 1fr;gap:12px;padding:10px 12px;border-radius:8px;background:var(--surface-2)}
+@media (max-width:520px){.issue{grid-template-columns:1fr}}
+.issue p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.issue strong{font-weight:600}
+.where{font-family:var(--mono);font-size:11px;color:var(--water)}
+footer{font-size:12px;color:var(--muted)}
+.tip{position:fixed;pointer-events:none;z-index:10;background:var(--fg);color:var(--bg);font-size:12px;padding:7px 9px;border-radius:6px;max-width:280px;line-height:1.4}
+@media (prefers-reduced-motion:no-preference){.meter i,.bar i{transition:width .35s ease}}
+</style>
+
+<div class="wrap">
+<header>
+  <span class="eyebrow">SYR2605 · Elaf for Relief and Development · Supported by ASB</span>
+  <h1>FLOW – Kafr Nabutha project dashboard</h1>
+  <p class="sub">Female-Led Optimized Water-to-Livelihoods Recovery Hub · 1 Jul – 15 Dec 2026 · Built from the project tracker workbook (last refreshed 24 Sep 2026). Planned progress is calculated from the approved Gantt dates; reported progress comes from what the tracker records.</p>
+</header>
+
+<div class="controls" role="group" aria-label="Dashboard controls">
+  <label for="asof">Status as of
+    <input type="date" id="asof" min="2026-07-01" max="2026-12-31" value="2026-10-04">
+  </label>
+  <div style="display:grid;gap:4px">
+    <span style="font-size:12px;color:var(--muted)">Component</span>
+    <div class="chips" id="chips"></div>
+  </div>
+  <button class="btn-ghost" id="reset" type="button">Reset to today</button>
+</div>
+
+<section class="verdict" aria-live="polite">
+  <div class="light" aria-hidden="true"></div>
+  <div>
+    <h2 id="verdict-h">Overall status: Red</h2>
+    <p id="verdict-p"></p>
+  </div>
+</section>
+
+<section class="kpis" id="kpis"></section>
+
+<section class="panel">
+  <div class="panel-head">
+    <h2>Schedule: planned vs reported</h2>
+    <div class="legend">
+      <span><i class="sw" style="background:var(--water-soft);border:1px solid var(--water)"></i>WASH</span>
+      <span><i class="sw" style="background:var(--olive-soft);border:1px solid var(--olive)"></i>Livelihoods</span>
+      <span><i class="sw" style="background:var(--surface-2);border:1px solid var(--muted)"></i>MEAL / Management</span>
+      <span>Hatched fill = share of duration elapsed</span>
+      <span><i class="sw" style="background:var(--bad);width:2px"></i>As-of date</span>
+    </div>
+  </div>
+  <div class="gantt"><div class="g-grid" id="gantt"></div></div>
+</section>
+
+<div class="two">
+  <section class="panel">
+    <div class="panel-head"><h2>Milestones</h2><span class="muted" id="ms-sum"></span></div>
+    <div class="tbl"><table id="ms"><thead><tr><th>Milestone</th><th>Due</th><th>Tracker says</th><th class="r">Days past due</th></tr></thead><tbody></tbody></table></div>
+  </section>
+  <section class="panel">
+    <div class="panel-head"><h2>Deliverables to ASB</h2><span class="muted" id="dl-sum"></span></div>
+    <div class="tbl"><table id="dl"><thead><tr><th>Deliverable</th><th>Due</th><th>Status</th><th class="r">Days past due</th></tr></thead><tbody></tbody></table></div>
+  </section>
+</div>
+
+<div class="two">
+  <section class="panel">
+    <div class="panel-head"><h2>Budget</h2><span class="muted">EUR, grant total 149,961</span></div>
+    <div class="alloc">
+      <div class="donut" id="donut"><div class="donut-c"><span>Relief goods</span><b>€117,026</b></div></div>
+      <div class="cats" id="alloc-legend"></div>
+    </div>
+    <div class="eyebrow">Budget vs actual by BVA line</div>
+    <div class="cats" id="bva"></div>
+    <p class="muted" style="margin:0;font-size:12.5px" id="burn"></p>
+  </section>
+  <section class="panel">
+    <div class="panel-head"><h2>Donor receipts & financial reporting</h2></div>
+    <div class="tbl"><table><thead><tr><th>Month</th><th>BVA report</th><th>Supporting docs</th><th>Variance narrative</th><th>Submission date</th></tr></thead>
+      <tbody id="fin"></tbody></table></div>
+    <div class="tbl"><table><thead><tr><th>ASB installment</th><th class="r">Received (EUR)</th><th>Receipt date</th></tr></thead>
+      <tbody><tr><td>#1</td><td class="r num">0</td><td class="muted">—</td></tr><tr><td>#2</td><td class="r num">0</td><td class="muted">—</td></tr><tr><td>#3</td><td class="r num">0</td><td class="muted">—</td></tr></tbody></table></div>
+  </section>
+</div>
+
+<div class="two">
+  <section class="panel">
+    <div class="panel-head"><h2>Logframe indicators (IPTT)</h2><span class="muted">13 indicators · all flagged Red</span></div>
+    <div class="ind" id="ind"></div>
+  </section>
+  <section class="panel">
+    <div class="panel-head"><h2>Risk register</h2><span class="muted">10 risks · 0 closed</span></div>
+    <div class="heat" aria-label="Risk heat map, probability by impact">
+      <div class="ax"></div><div class="ax">Impact low</div><div class="ax">Medium</div><div class="ax">High</div>
+      <div class="ax">Prob. high</div><div class="h2 cell">0</div><div class="h3 cell">0</div><div class="h3 cell">0</div>
+      <div class="ax">Medium</div><div class="h1 cell">0</div><div class="h2 cell" style="outline:2px solid var(--warn)">10</div><div class="h3 cell">0</div>
+      <div class="ax">Low</div><div class="h1 cell">0</div><div class="h1 cell">0</div><div class="h2 cell">0</div>
+    </div>
+    <div class="eyebrow">By category</div>
+    <div class="cats" id="riskcat"></div>
+    <p class="muted" style="margin:0;font-size:12.5px">Every risk carries the same Medium × Medium score of 4, and none has an owner, mitigation measure or review date filled in. The register still reads like the proposal stage; nothing has been re-scored against what is happening on the ground.</p>
+  </section>
+</div>
+
+<section class="panel" data-comp="Result 1 - WASH">
+  <div class="panel-head"><h2>WASH works: bill of quantities</h2><span class="muted">Water network rehabilitation, Activity 1.3–1.4</span></div>
+  <div class="tbl"><table><thead><tr><th>Asset</th><th>Specification</th><th class="r">Planned</th><th class="r">Installed</th><th>Unit</th><th>Inspection</th><th class="r">Completion</th></tr></thead><tbody id="boq"></tbody></table></div>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2>Data health: what to fix in the tracker</h2><span class="muted">Issues that make the workbook's own dashboard unreliable</span></div>
+  <ul class="issues" id="issues"></ul>
+</section>
+
+<footer>Source: SYR2605_Project_Tracker_200726.xlsx (20 sheets). Planned progress assumes linear progress between each activity's planned start and end. Rows labelled “EXAMPLE” in the workbook are excluded from the figures here.</footer>
+</div>
+<div class="tip" id="tip" hidden></div>
+
+<script>
+const D = s => { const [y,m,d] = s.split('-').map(Number); return Date.UTC(y,m-1,d); };
+const DAY = 864e5;
+const fmt = t => new Date(t).toLocaleDateString('en-GB',{day:'2-digit',month:'short',timeZone:'UTC'});
+const eur = n => '€' + Math.round(n).toLocaleString('en-US');
+const P0 = D('2026-07-01'), P1 = D('2026-12-15');
+const TODAY = D('2026-10-04');
+
+const COMP = {
+  'Inception & Approvals':{short:'Inception',c:'c-grey'},
+  'Result 1 - WASH':{short:'WASH',c:''},
+  'Result 2 - Livelihoods':{short:'Livelihoods',c:'c-olive'},
+  'Result 3 - MEAL/Learning':{short:'MEAL',c:'c-grey'},
+  'Project Management':{short:'Management',c:'c-grey'}
+};
+const ACT = [
+ ['0','Inception & Approvals','Project inception, stakeholder coordination & government approvals','2026-07-01','2026-07-21','Project Manager'],
+ ['1.1','Result 1 - WASH','Rapid technical, accessibility & protection-sensitive WASH assessment; BoQ verification','2026-07-15','2026-08-04','WASH Officer'],
+ ['1.2','Result 1 - WASH','Finalize BoQ, technical design, procurement plan & schedule','2026-08-05','2026-08-25','WASH Officer'],
+ ['1.3','Result 1 - WASH','Light rehabilitation of priority water network sections','2026-08-26','2026-11-17','Contractor'],
+ ['1.4','Result 1 - WASH','Connect public institutions (schools, health centers) to main network','2026-11-18','2026-12-15','WASH Officer'],
+ ['2.1','Result 2 - Livelihoods','Inclusive livelihood profiling, feasibility & reasonable accommodation assessment','2026-07-15','2026-08-04','Livelihood Officer'],
+ ['2.2','Result 2 - Livelihoods','Select 100 beneficiaries (75%+ women)','2026-08-05','2026-08-18','Livelihood Officer'],
+ ['2.3','Result 2 - Livelihoods','Business, life-skills & technical/vocational training','2026-08-19','2026-09-15','Livelihood Officer'],
+ ['2.4','Result 2 - Livelihoods','Voucher-based business packages & accommodation support','2026-09-16','2026-10-06','Livelihood Officer'],
+ ['2.5','Result 2 - Livelihoods','Establish women-led production & marketing association','2026-08-19','2026-11-10','Livelihood Officer'],
+ ['2.6','Result 2 - Livelihoods','Business coaching, market linkages, exhibition & local recovery purchase','2026-10-07','2026-12-01','Livelihood Officer'],
+ ['3.1','Result 3 - MEAL/Learning','Baseline assessment','2026-07-08','2026-07-14','MEAL Officer'],
+ ['3.2','Result 3 - MEAL/Learning','Routine, post-distribution & post-support monitoring','2026-07-15','2026-11-24','MEAL Officer'],
+ ['3.3','Result 3 - MEAL/Learning','Endline, learning review, case studies & replication brief','2026-11-25','2026-12-15','MEAL Officer'],
+ ['PM','Project Management','Overall project management & institutional coordination','2026-07-01','2026-12-15','Project Manager']
+].map(a=>({id:a[0],comp:a[1],name:a[2],s:D(a[3]),e:D(a[4]),who:a[5],reported:0,status:'Not Started'}));
+
+const MS = [
+ ['Project inception & government approvals complete','2026-07-21','Inception & Approvals'],
+ ['Rapid WASH assessment & BoQ verification complete','2026-08-04','Result 1 - WASH'],
+ ['100 livelihood beneficiaries selected','2026-08-18','Result 2 - Livelihoods'],
+ ['Final BoQ, design & procurement plan approved','2026-08-25','Result 1 - WASH'],
+ ['Women-led association established','2026-09-15','Result 2 - Livelihoods'],
+ ['100% of voucher packages redeemed','2026-10-06','Result 2 - Livelihoods'],
+ ['Water network rehabilitation complete','2026-11-17','Result 1 - WASH'],
+ ['Public institutions connected to water network','2026-12-15','Result 1 - WASH'],
+ ['Endline assessment & replication brief complete','2026-12-15','Result 3 - MEAL/Learning']
+].map(m=>({name:m[0],due:D(m[1]),comp:m[2],status:'On Track'}));
+
+const DL = [
+ ['Rapid technical/accessibility WASH assessment report','Result 1 - WASH','2026-08-04'],
+ ['100 individual business support plans','Result 2 - Livelihoods','2026-08-18'],
+ ['Approved voucher beneficiary lists','Result 2 - Livelihoods','2026-08-18'],
+ ['Accessible training materials package','Result 2 - Livelihoods','2026-08-19'],
+ ['Final bill of quantities (BoQ)','Result 1 - WASH','2026-08-25'],
+ ['Final technical design & drawings','Result 1 - WASH','2026-08-25'],
+ ['Tender documentation','Result 1 - WASH','2026-08-25'],
+ ['Supplier / contractor contracts','Result 1 - WASH','2026-08-25'],
+ ['Women-led association constitution & registration','Result 2 - Livelihoods','2026-09-15'],
+ ['Water network rehabilitation completion report','Result 1 - WASH','2026-11-17'],
+ ['Public institution connection handover report','Result 1 - WASH','2026-12-15'],
+ ['Endline assessment report','Result 3 - MEAL/Learning','2026-12-15'],
+ ['FLOW-Kafr Nabutha replication brief','Result 3 - MEAL/Learning','2026-12-15']
+].map(d=>({name:d[0],comp:d[1],due:D(d[2])}));
+
+const IND = [
+ ['Outcome','HHs reporting improved access to safer, more reliable WASH services',80,'%'],
+ ['Outcome','Livelihood beneficiaries reporting income generation / improved production',70,'%'],
+ ['Output','WASH rehabilitation package completed per approved BoQ',100,'%'],
+ ['Output','Individuals with access to safe drinking water via improved system',20000,'people'],
+ ['Output','Public institutions connected to the water network',1,''],
+ ['Output','PWDs / highly vulnerable women receiving adapted livelihood support',100,'people'],
+ ['Output','Households receiving locally produced in-kind assistance',100,'HH'],
+ ['Output','Beneficiaries receiving €400 equipment + €200 raw-material vouchers',100,'people'],
+ ['Output','Allocated for accessibility modifications / tools',10000,'EUR'],
+ ['Output','Beneficiaries receiving voucher-based business packages',100,'people'],
+ ['Output','Women-led associations established with PWD participation',1,''],
+ ['Output','Allocated for purchase of beneficiary-produced goods',10000,'EUR'],
+ ['Result 2','Beneficiaries with active income-generating activities at project end',70,'%']
+];
+const RISKCAT = {'Financial/Market':3,'Protection/Social':2,'Operational':2,'Contractual/Procurement':2,'Security/Access':1};
+const BOQ = [
+ ['Pipe extension','DN90 HDPE PE100',425,'m'],['Gate valve','DN50',22,'pcs'],['Gate valve','DN90',14,'pcs'],['Gate valve','DN110',8,'pcs'],
+ ['Coupling / connector','DN50',30,'pcs'],['Coupling / connector','DN63',26,'pcs'],['Coupling / connector','DN90',10,'pcs'],
+ ['Pressure gauge','0–10 bar, 63/100 mm dial',2,'pcs'],['Inspection chamber','180×100×100 cm',2,'pcs'],['Inspection chamber','100×100×100 cm',6,'pcs'],
+ ['Manhole cover','Cast iron 70×70 cm, ≥140 kg',10,'pcs'],['Public institution connection','School / health center',1,'pcs']
+];
+const ALLOC = [['WASH',27876.24,'var(--water)'],['Livelihoods',87500,'var(--olive)'],['MEAL',1000,'var(--warn)'],['Other',650,'var(--muted)']];
+const BVA = [['1.2 Relief measures',115376.24,100000],['2.2 Local personnel',25650,0],['3. Transport & storage',5000,0],['4. Other costs',3934.76,0]];
+
+let asof = TODAY, comp = 'all';
+const planned = (s,e,t) => t<s?0: t>=e?1 : (t-s)/(e-s);
+const inComp = c => comp==='all' || c===comp;
+
+// chips
+const chipsEl = document.getElementById('chips');
+[['all','All'],...Object.entries(COMP).map(([k,v])=>[k,v.short])].forEach(([k,l])=>{
+  const b=document.createElement('button'); b.type='button'; b.className='chip'; b.textContent=l; b.dataset.k=k;
+  b.setAttribute('aria-pressed', k==='all'); b.onclick=()=>{comp=k; render();}; chipsEl.appendChild(b);
+});
+document.getElementById('asof').addEventListener('change',e=>{ if(e.target.value){asof=D(e.target.value); render();} });
+document.getElementById('reset').onclick=()=>{asof=TODAY; comp='all'; document.getElementById('asof').value='2026-10-04'; render();};
+
+const tip=document.getElementById('tip');
+function showTip(e,html){tip.innerHTML=html; tip.hidden=false; const x=Math.min(e.clientX+12, innerWidth-300); tip.style.left=x+'px'; tip.style.top=(e.clientY+14)+'px';}
+
+function kpi(cls,label,v,d,meter){return `<div class="kpi ${cls}"><span class="eyebrow">${label}</span><span class="v">${v}</span>${meter||''}<span class="d">${d}</span></div>`;}
+
+function render(){
+  chipsEl.querySelectorAll('.chip').forEach(b=>b.setAttribute('aria-pressed', b.dataset.k===comp));
+  const acts = ACT.filter(a=>inComp(a.comp));
+  const elapsed = planned(P0,P1,asof);
+  const planAvg = acts.reduce((s,a)=>s+planned(a.s,a.e,asof),0)/acts.length;
+  const shouldDone = acts.filter(a=>a.e<=asof).length;
+  const shouldRun = acts.filter(a=>a.s<=asof && a.e>asof).length;
+  const ms = MS.filter(m=>inComp(m.comp)); const msDue = ms.filter(m=>m.due<asof);
+  const dl = DL.filter(d=>inComp(d.comp)); const dlDue = dl.filter(d=>d.due<asof);
+  const spent = 0, total = 149961;
+  const daysLeft = Math.max(0,Math.round((P1-asof)/DAY));
+
+  document.getElementById('kpis').innerHTML =
+    kpi('', 'Time elapsed', Math.round(elapsed*100)+'%', `${daysLeft} days to project end (15 Dec)`, `<div class="meter"><i style="width:${elapsed*100}%"></i></div>`) +
+    kpi('bad','Schedule gap', `${Math.round(planAvg*100)} pts`, `Planned ${Math.round(planAvg*100)}% vs reported 0% across ${acts.length} activities`, `<div class="meter"><i style="width:0"></i><b style="left:${planAvg*100}%"></b></div>`) +
+    kpi(shouldDone?'bad':'', 'Activities past end date', `${shouldDone} / ${acts.length}`, `None marked completed · ${shouldRun} more should be underway`) +
+    kpi(msDue.length?'bad':'', 'Milestones past due', `${msDue.length} / ${ms.length}`, `All still labelled “On Track”, none has an actual date`) +
+    kpi(dlDue.length?'bad':'', 'Deliverables overdue', `${dlDue.length} / ${dl.length}`, `None submitted to ASB yet`) +
+    kpi('warn','Budget spent (BVA total)', '0%', `${eur(spent)} of ${eur(total)} · one €100k entry sits in Dec-26, see data health`);
+
+  const tl = acts.length===ACT.length ? 'all 15 activities' : `the ${acts.length} ${COMP[comp].short} activities`;
+  document.getElementById('verdict-p').textContent =
+    `As of ${fmt(asof)} 2026, ${Math.round(elapsed*100)}% of the project period has passed. On the approved schedule, ${tl} should average ${Math.round(planAvg*100)}% complete, with ${shouldDone} finished; the tracker still shows every one at 0% and “Not Started”, and ${msDue.length} milestone${msDue.length===1?'':'s'} past due remain “On Track”. Either implementation has stalled or the tracker has not been updated since set-up. Updating status, % complete and actual dates is the first action before the next ASB report.`;
+
+  // Gantt
+  const span = P1-P0+DAY; const pos = t => ((t-P0)/span*100);
+  const monthTicks = ['2026-07-01','2026-08-01','2026-09-01','2026-10-01','2026-11-01','2026-12-01'].map(D);
+  const mNames = ['Jul','Aug','Sep','Oct','Nov','Dec'];
+  const todayLine = asof>=P0 && asof<=P1 ? `<div class="today" style="left:${pos(asof)}%"></div>` : '';
+  let g = `<div class="g-row head"><div>Activity</div><div><div class="months">${monthTicks.map((t,i)=>`<span style="left:${pos(t)}%">${mNames[i]}</span>`).join('')}${asof>=P0&&asof<=P1?`<span class="today-lbl" style="left:${pos(asof)}%;top:15px">${fmt(asof)}</span>`:''}</div></div><div>Status</div></div>`;
+  acts.forEach((a,i)=>{
+    const p = planned(a.s,a.e,asof);
+    let pill;
+    if (a.e<=asof) pill='<span class="pill bad">Overdue</span>';
+    else if (a.s<=asof) pill='<span class="pill warn">Behind</span>';
+    else pill='<span class="pill neutral">Upcoming</span>';
+    g += `<div class="g-row"><div class="g-name"><span>${a.name}</span><small>${a.id} · ${a.who}</small></div>
+      <div class="track" data-i="${ACT.indexOf(a)}">${todayLine}<div class="bar ${COMP[a.comp].c}" style="left:${pos(a.s)}%;width:${(a.e-a.s+DAY)/span*100}%"><i style="width:${p*100}%"></i></div></div>
+      <div class="g-stat">${pill}</div></div>`;
+  });
+  const gEl=document.getElementById('gantt'); gEl.innerHTML=g;
+  gEl.querySelectorAll('.track').forEach(t=>{
+    const a=ACT[+t.dataset.i];
+    t.onmousemove=e=>showTip(e,`<b>${a.id} ${a.name}</b><br>${fmt(a.s)} – ${fmt(a.e)} (${Math.round((a.e-a.s)/DAY)+1} days)<br>Planned by ${fmt(asof)}: ${Math.round(planned(a.s,a.e,asof)*100)}%<br>Reported: ${a.reported}% · ${a.status}`);
+    t.onmouseleave=()=>tip.hidden=true;
+  });
+
+  // milestones & deliverables
+  const late = t => Math.round((asof-t)/DAY);
+  document.querySelector('#ms tbody').innerHTML = ms.map(m=>{
+    const d=late(m.due); const overdue=d>0;
+    return `<tr><td>${m.name}</td><td class="num">${fmt(m.due)}</td><td><span class="pill ${overdue?'bad':'good'}">${m.status}</span></td><td class="r num">${overdue?d:'—'}</td></tr>`;}).join('');
+  document.getElementById('ms-sum').textContent = `${msDue.length} of ${ms.length} past due`;
+  document.querySelector('#dl tbody').innerHTML = dl.map(x=>{
+    const d=late(x.due); const overdue=d>0; const soon=!overdue && d>-15;
+    return `<tr><td>${x.name}</td><td class="num">${fmt(x.due)}</td><td><span class="pill ${overdue?'bad':soon?'warn':'neutral'}">${overdue?'Not submitted':soon?'Due soon':'Not started'}</span></td><td class="r num">${overdue?d:'—'}</td></tr>`;}).join('');
+  document.getElementById('dl-sum').textContent = `${dlDue.length} of ${dl.length} overdue`;
+
+  // WASH panel visibility
+  document.querySelectorAll('[data-comp]').forEach(p=>p.hidden = !(comp==='all'||comp===p.dataset.comp));
+
+  // burn text
+  document.getElementById('burn').textContent = `By ${fmt(asof)}, ${Math.round(elapsed*100)}% of the period has passed. A straight-line burn would put spend near ${eur(total*elapsed)}; the BVA total row reports €0. Livelihoods holds 75% of relief goods, so voucher redemption (Activity 2.4, due ${fmt(D('2026-10-06'))}) is the single largest spend driver.`;
+}
+
+// static: allocation donut
+(function(){
+  const sum=ALLOC.reduce((s,a)=>s+a[1],0); let acc=0;
+  const stops=ALLOC.map(a=>{const s=acc/sum*360; acc+=a[1]; return `${a[2]} ${s}deg ${acc/sum*360}deg`;});
+  document.getElementById('donut').style.background=`conic-gradient(${stops.join(',')})`;
+  document.getElementById('alloc-legend').innerHTML = ALLOC.map(a=>`<div class="hbar-top"><span><i class="sw" style="background:${a[2]}"></i> ${a[0]}</span><span class="num">${eur(a[1])} · ${(a[1]/sum*100).toFixed(1)}%</span></div>`).join('');
+  document.getElementById('bva').innerHTML = BVA.map(b=>`<div class="hbar"><div class="hbar-top"><span>${b[0]}</span><span class="num">${eur(b[2])} / ${eur(b[1])}</span></div><div class="meter"><i style="width:${b[2]/b[1]*100}%;background:${b[2]?'var(--warn)':'var(--water)'}"></i></div>${b[2]?'<span class="muted" style="font-size:12px">€100,000 entered under Dec-2026, a month that has not happened yet. Not counted in the BVA total.</span>':''}</div>`).join('');
+  const fin=[['Jul-26','✓','✓','✓'],['Aug-26','✓','✓','✓'],['Sep-26','','',''],['Oct-26','','',''],['Nov-26','','',''],['Dec-26','','','']];
+  const c=v=>v?'<span class="pill good">Submitted</span>':'<span class="pill neutral">—</span>';
+  document.getElementById('fin').innerHTML=fin.map(f=>`<tr><td class="num">${f[0]}</td><td>${c(f[1])}</td><td>${c(f[2])}</td><td>${c(f[3])}</td><td class="muted">${f[1]?'missing':'—'}</td></tr>`).join('');
+  document.getElementById('ind').innerHTML = IND.map(i=>`<div class="ind-row"><div><div class="lvl">${i[0]}</div>${i[1]}</div><div><div class="t">0 / ${i[2].toLocaleString('en-US')} ${i[3]}</div><div class="meter"><i style="width:0"></i></div></div></div>`).join('');
+  const mx=Math.max(...Object.values(RISKCAT));
+  document.getElementById('riskcat').innerHTML = Object.entries(RISKCAT).map(([k,v])=>`<div class="hbar"><div class="hbar-top"><span>${k}</span><span class="num">${v}</span></div><div class="meter"><i style="width:${v/mx*100}%;background:var(--warn)"></i></div></div>`).join('');
+  document.getElementById('boq').innerHTML = BOQ.map(b=>`<tr><td>${b[0]}</td><td class="muted">${b[1]}</td><td class="r num">${b[2]}</td><td class="r num">0</td><td>${b[3]}</td><td><span class="pill neutral">None logged</span></td><td class="r num">0%</td></tr>`).join('');
+  const ISS=[
+   ['Critical','Status never updated','Master Activity Tracker','All 15 activities are “Not Started” at 0% with 0 delay days, although 7 have passed their planned end date. Every KPI on the workbook dashboard flows from these cells.'],
+   ['Critical','Overdue milestones marked “On Track”','Milestone Tracker','5 milestones are past due with no actual date, but their status still says On Track. The dashboard reports 0/9 achieved and 0 delayed at the same time.'],
+   ['Critical','€100,000 expense in a future month','BVA','Relief measures shows €100,000 under 12-2026 while Jul–Sep are blank. The Total row still shows €0 actual, so totals and line figures disagree. Move it to the correct month and recalculate.'],
+   ['High','Example rows counted as real results','Dashboard','Beneficiaries reached (1), % women (100%), lessons logged (1), circular recovery spent (€100), businesses started (1) and association meetings (1) all come from rows labelled “EXAMPLE — DELETE”.'],
+   ['High','Broken formulas','Dashboard','“Training sessions delivered” and one indicator in the achievement chart return #REF!, which points to a deleted or renamed source range.'],
+   ['High','Reports marked submitted without dates or receipts','Financial Tracker · ASB Receipts','BVA reports for Jul and Aug are ticked as submitted but have no submission dates, and all three ASB installments show €0 received.'],
+   ['Medium','Two budget baselines','Dashboard vs BVA','The dashboard tracks relief goods at €117,026.24; the BVA relief measures line is €115,376.24. The €1,650 gap equals the MEAL (€1,000) and Other (€650) categories. Confirm which lines belong to which baseline.'],
+   ['Medium','Open monitoring action contradicts tracker','Monitoring Visit Tracker','The 10 Sep ASB visit records “water network works on track”, while the WASH tracker shows 0% installed. Its follow-up action (due 24 Sep) is still open.'],
+   ['Medium','Empty operational registers','Beneficiaries · Procurement · Inspections','Beneficiary database, procurement, infrastructure inspection and lessons learned hold only example rows. Selection of 100 beneficiaries was due 18 Aug.'],
+   ['Low','Risk register not maintained','Risk & Issue Tracker','No owner, mitigation, review date or closure status on any of the 10 risks.']
+  ];
+  const sev={Critical:'bad',High:'warn',Medium:'neutral',Low:'neutral'};
+  document.getElementById('issues').innerHTML = ISS.map(i=>`<li class="issue"><div><span class="pill ${sev[i[0]]}">${i[0]}</span></div><div><strong>${i[1]}</strong> <span class="where">${i[2]}</span><p>${i[3]}</p></div></li>`).join('');
+})();
+render();
+</script>
